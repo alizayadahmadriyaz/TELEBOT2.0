@@ -26,10 +26,12 @@ genai.configure(api_key=GEMINI_API_KEY)
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 
-def escape_markdown(text):
-    special_chars = r"_*[]()~`>#+-=|{}.!"
-    return "".join(f"\\{char}" if char in special_chars else char for char in text)
-
+def analyse_sentiment(text):
+    prompt = f"Analyze the sentiment of the following text and provide a classification (Positive, Negative, Neutral) along with a brief explanation:\n\n{text}"
+    
+    model = genai.GenerativeModel("gemini-pro")  # Choose an appropriate model
+    response = model.generate_content(prompt)
+    return response.text.strip()
 
 def google_search(query):
     """Fetches top search results from Google Custom Search API."""
@@ -110,13 +112,14 @@ def save_phone(message):
 def chat_with_gemini(message):
     chat_id = message.chat.id
     user_input = message.text
-    
+    sentiment=analyse_sentiment(user_input)
+
     model = genai.GenerativeModel("gemini-pro")  # Correct model usage
     response = model.generate_content(user_input)  # Get AI response
     escaped_text = response.text
-    bot.send_message(chat_id, escaped_text)  # Send response text only
+    bot.send_message(chat_id, escaped_text+f"sentiment is {sentiment}")  # Send response text only
     chats_col.insert_one({"chat_id": chat_id, "user_input": user_input, "bot_response": escaped_text})
-
+    
 @bot.message_handler(content_types=['photo', 'document'])
 def handle_files(message):
     chat_id = message.chat.id
@@ -131,7 +134,7 @@ def handle_files(message):
 
     # Open Image with PIL
     image = PIL.open(BytesIO(response.content))
-    image.show()
+    # image.show()
     # Use Gemini API to Analyze Image
     model = genai.GenerativeModel("gemini-1.5-pro")
     gemini_response = model.generate_content([image, "Describe this image."])
@@ -152,4 +155,5 @@ def start_command(message):
     register_user(message)
     chat_id = message.chat.id
     bot.send_message(chat_id, "/chat for chatting with bot   /websearch for searching to get your answer")
-bot.polling()
+    bot.send_message(chat_id, "use sharecontact button of cheching your phone number saved successfully  ")
+bot.polling(none_stop=True, interval=0, timeout=20)
